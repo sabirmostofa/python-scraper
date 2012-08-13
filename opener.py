@@ -2,6 +2,16 @@ import urllib2,gzip,urlparse
 from StringIO import StringIO
 import sys,time
 USER_AGENT='Google-Chrome'
+FETCH_TOTAL_TRY = 5
+
+AGENTS = [
+'Googlebot/2.1 (+http://www.google.com/bot.html)',
+'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+'Mediapartners-Google/2.1',
+'Mozilla/5.0 (compatible; Yahoo! Slurp; http://help.yahoo.com/help/us/ysearch/slurp)',
+'DoCoMo/1.0/P502i/c10 (Google CHTML Proxy/1.0)',
+'Googlebot-Image/1.0 ( http://www.googlebot.com/bot.html)'
+]
 
 t1=time.time()
 
@@ -58,7 +68,7 @@ def open_anything(url,etag=None,last_modified=None,agent=USER_AGENT):
 	return StringIO(str(url))
 	
 	
-def fetch(source, etag=None, last_modified=None, agent=USER_AGENT,fetch_try=3):
+def fetch(source, etag=None, last_modified=None, agent=USER_AGENT,fetch_try=FETCH_TOTAL_TRY):
 	result = {}
 	result['data']='nothing'
 	try:
@@ -86,12 +96,13 @@ def fetch(source, etag=None, last_modified=None, agent=USER_AGENT,fetch_try=3):
 		print 'open_anything failed, retry: %s' %fetch_try
 		fetch_try -=1 
 		if fetch_try > 0:
-			result = fetch(source, None, None, USER_AGENT, fetch_try)
+			result = fetch(source, None, None, AGENTS[random.randint(0,len(AGENTS)-1)], fetch_try)
+			
 		#~ Checking if Robot 
 	if 'robot_check_container' in result['data']:
 		print '@@@@@@@@@@ DUMPED!!!!!!!! HIDE n SLEEP'
 		time.sleep(15)		
-		result = fetch(source)
+		result = fetch(source,None, None,)
 	return result 
 
 

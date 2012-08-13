@@ -126,6 +126,8 @@ def i_have_got_page_number(url):
 		m=reg.match(link)
 		if m:
 			series_name=i.get('title')
+			if 'Watch' in series_name:
+				series_name=series_name[6:-7].strip()
 			series_link="http://www.1channel.ch"+m.group(0)
 			i_have_got_series_name(series_link,series_name)
 
