@@ -1,6 +1,6 @@
 import urllib2,gzip,urlparse
 from StringIO import StringIO
-import sys,time
+import sys,time, random
 USER_AGENT='Google-Chrome'
 FETCH_TOTAL_TRY = 5
 
@@ -100,9 +100,8 @@ def fetch(source, etag=None, last_modified=None, agent=USER_AGENT,fetch_try=FETC
 			
 		#~ Checking if Robot 
 	if 'robot_check_container' in result['data']:
-		print '@@@@@@@@@@ DUMPED!!!!!!!! HIDE n SLEEP'
-		time.sleep(15)		
-		result = fetch(source,None, None,)
+		print '@@@@@@@@@@ DUMPED with agent %s !!!!!!!! HIDE n SLEEP' %s			
+		result = fetch(source,None, None, AGENTS[random.randint(0,len(AGENTS)-1)])
 	return result 
 
 

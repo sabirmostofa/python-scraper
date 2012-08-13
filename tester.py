@@ -1,15 +1,13 @@
 from bs4 import BeautifulSoup
-import opener
-import re
+import opener, re, sys, socket, random
 from urlparse import urlparse
 from base64 import standard_b64decode
 import MySQLdb as mdb
-import sys
 from datetime import datetime
 from multiprocessing import Pool
-import socket
 
-socket.setdefaulttimeout(30)
+
+socket.setdefaulttimeout(15)
 con=mdb.connect('localhost','root','11235813','vidsearch')
 
 def get_series_id_in_database(name,link,d):
