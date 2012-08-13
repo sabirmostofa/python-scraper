@@ -7,7 +7,9 @@ import MySQLdb as mdb
 import sys
 from datetime import datetime
 from multiprocessing import Pool
+import socket
 
+socket.setdefaulttimeout(30)
 con=mdb.connect('localhost','root','11235813','vidsearch')
 
 def get_series_id_in_database(name,link,d):
@@ -164,7 +166,8 @@ if __name__=='__main__':
 	#~ i_have_got_series_name("http://www.1channel.ch/watch-9460-2020","hello")
 	#~ i_have_got_page_number('http://www.1channel.ch/?letter=123&tv&page=1')
 	#~ get_page_count_and_go_deeper('http://www.1channel.ch/?letter=123&tv')
-	l=generate_all_the_main_page_name()
+	tot = generate_all_the_main_page_name()
+	#print m
 	p=Pool(15)
-	p.map(get_page_count_and_go_deeper,l)
+	p.map(get_page_count_and_go_deeper,tot)
 	

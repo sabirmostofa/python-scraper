@@ -1,7 +1,7 @@
 import urllib2,gzip,urlparse
 from StringIO import StringIO
 import sys,time
-USER_AGENT='GOOGLE-CHROME'
+USER_AGENT='Mozilla/5.0 (X11; Linux i686) AppleWebKit/535.19 (KHTML, like Gecko) Chrome/18.0.1025.162 Safari/535.19'
 
 t1=time.time()
 
