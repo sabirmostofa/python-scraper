@@ -131,21 +131,22 @@ def i_have_got_page_number(url):
 
 
 def get_page_count_and_go_deeper(url):
-	data=opener.fetch(url)['data']
-	soup=BeautifulSoup(data)
-	l=soup.select('.pagination > a ')
-	ref = l[len(l)-1]['href']
-	reg=re.compile(r'.*?page=(\d+).*?')
-	page_count=1
-	m=reg.match(ref)
-	if m:
-		page_count=int(m.group(1))
+	#~ data=opener.fetch(url)['data']
+	#~ soup=BeautifulSoup(data)
+	#~ l=soup.select('.pagination > a ')
+	#~ ref = l[len(l)-1]['href']
+	#~ reg=re.compile(r'.*?page=(\d+).*?')
+	#~ page_count=1
+	#~ m=reg.match(ref)
+	#~ if m:
+		#~ page_count=int(m.group(1))
 	#~ print page_count
-	
-	
-	for i in range(1,page_count+1):
-		new_url=url+"=&page="+str(i)
+	#~ 
+	#~ 
+	#~ for i in range(1,page_count+1):
+		#~ new_url=url+"=&page="+str(i)
 		#~ print new_url
+		new_url=url
 		i_have_got_page_number(new_url)
 	
 
@@ -154,7 +155,26 @@ def generate_all_the_main_page_name():
 	l.append('http://www.1channel.ch/?letter=123&tv')
 	for i in range(ord('a'),ord('z')+1):
 		l.append('http://www.1channel.ch/?letter='+str(chr(i))+'&tv')
-	return l
+	
+	#generating all pages with page number	
+	all_pages = [] 
+	for url in l:
+		page_count=1
+		data=opener.fetch(url)['data']
+		soup=BeautifulSoup(data)
+		l=soup.select('.pagination > a ')		
+		
+		if len(l) != 0:
+			ref = l[len(l)-1]['href']
+			reg=re.compile(r'.*?page=(\d+)')
+			print url, l[len(l)-1]['href']
+			m=reg.match(ref)
+			if m:
+				page_count=int(m.group(1))
+				print page_count
+		for i in range(1,page_count+1):
+			all_pages.append(url+"=&page="+str(i))
+	return all_pages
 
 
 
@@ -167,7 +187,9 @@ if __name__=='__main__':
 	#~ i_have_got_page_number('http://www.1channel.ch/?letter=123&tv&page=1')
 	#~ get_page_count_and_go_deeper('http://www.1channel.ch/?letter=123&tv')
 	tot = generate_all_the_main_page_name()
-	#print tot
+	#~ print tot
+	#~ print len(tot)
+	#~ sys.exit()
 	p=Pool(15)
 	p.map(get_page_count_and_go_deeper,tot)
 	
