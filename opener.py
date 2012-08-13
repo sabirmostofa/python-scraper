@@ -1,7 +1,7 @@
 import urllib2,gzip,urlparse
 from StringIO import StringIO
 import sys,time
-USER_AGENT='Mozilla/5.0 (X11; Linux i686) AppleWebKit/535.19 (KHTML, like Gecko) Chrome/18.0.1025.162 Safari/535.19'
+USER_AGENT='Google-Chrome'
 
 t1=time.time()
 
@@ -58,7 +58,7 @@ def open_anything(url,etag=None,last_modified=None,agent=USER_AGENT):
 	return StringIO(str(url))
 	
 	
-def fetch(source, etag=None, last_modified=None, agent=USER_AGENT):
+def fetch(source, etag=None, last_modified=None, agent=USER_AGENT,fetch_try=3):
 	result = {}
 	result['data']='nothing'
 	try:
@@ -83,7 +83,15 @@ def fetch(source, etag=None, last_modified=None, agent=USER_AGENT):
 			result['status'] = f.status
 		f.close()
 	except:
-		print 'open_anything failed'
+		print 'open_anything failed, retry: %s' %fetch_try
+		fetch_try -=1 
+		if fetch_try > 0:
+			result = fetch(source, None, None, USER_AGENT, fetch_try)
+		#~ Checking if Robot 
+	if 'robot_check_container' in result['data']:
+		print '@@@@@@@@@@ DUMPED!!!!!!!! HIDE n SLEEP'
+		time.sleep(15)		
+		result = fetch(source)
 	return result 
 
 

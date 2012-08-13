@@ -167,7 +167,7 @@ if __name__=='__main__':
 	#~ i_have_got_page_number('http://www.1channel.ch/?letter=123&tv&page=1')
 	#~ get_page_count_and_go_deeper('http://www.1channel.ch/?letter=123&tv')
 	tot = generate_all_the_main_page_name()
-	#print m
+	#print tot
 	p=Pool(15)
 	p.map(get_page_count_and_go_deeper,tot)
 	
