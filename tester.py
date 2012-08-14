@@ -157,8 +157,9 @@ def get_all_series_links(pages):
 	
 	for url in pages:
 		counter+=1
-		if counter==2:
-			break
+		if TEST:
+			if counter==2:
+				break
 		data=opener.fetch(url)['data']
 		#~ url_to = '%s.html'%i
 		#~ f=open(url_to,'w')
