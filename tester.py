@@ -341,8 +341,10 @@ if __name__=='__main__':
 		
 	#~ all_series=get_all_series_links(tot)		
 	random.shuffle(all_series)
+	#default encoding ASCII error proned
+	all_series = [(s.encode('utf-8'),i) for s,i in all_series ]
 	print all_series[0]
-	sys.exit()
+	#~ sys.exit()
 	print 'Total pages to loop over: %s' % len(tot)
 	print 'Total Series to loop over: %s' % len(all_series)
 	#~ print tot
@@ -354,7 +356,10 @@ if __name__=='__main__':
 	chunk_size = int(math.ceil(len(all_series)/WORKER))
 	print 'Chunk Size set to: %s' % chunk_size	
 	
-	p.map(start_multiprocessing , all_series)
+	try:
+		p.map(start_multiprocessing , all_series)
+	except:
+		print 'Process Allocation Error^^^^^^^^^^^^^^^^^'
 	
 		
 	#~ p.map_async(get_page_count_and_go_deeper,tot)
