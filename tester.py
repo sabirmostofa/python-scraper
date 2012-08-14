@@ -167,11 +167,11 @@ def generate_all_the_main_page_name():
 		if len(l) != 0:
 			ref = l[len(l)-1]['href']
 			reg=re.compile(r'.*?page=(\d+)')
-			print url, l[len(l)-1]['href']
+			#~ print url, l[len(l)-1]['href']
 			m=reg.match(ref)
 			if m:
 				page_count=int(m.group(1))
-				print page_count
+				#~ print page_count
 		for i in range(1,page_count+1):
 			all_pages.append(url+"=&page="+str(i))
 	return all_pages
@@ -187,6 +187,8 @@ if __name__=='__main__':
 	#~ i_have_got_page_number('http://www.1channel.ch/?letter=123&tv&page=1')
 	#~ get_page_count_and_go_deeper('http://www.1channel.ch/?letter=123&tv')
 	tot = generate_all_the_main_page_name()
+	random.shuffle(tot)
+	print 'Total pages to loop over: %s' % len(tot)
 	#~ print tot
 	#~ print len(tot)
 	#~ sys.exit()
