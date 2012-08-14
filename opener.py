@@ -96,12 +96,12 @@ def fetch(source, etag=None, last_modified=None, agent=USER_AGENT,fetch_try=FETC
 		print 'open_anything failed, retry: %s' %fetch_try
 		fetch_try -=1 
 		if fetch_try > 0:
-			result = fetch(source, None, None, AGENTS[random.randint(0,len(AGENTS)-1)], fetch_try)
+			result = fetch(source, None, None, random.choice(AGENTS), fetch_try)
 			
 		#~ Checking if Robot 
 	if 'robot_check_container' in result['data']:
 		print '@@@@@@@@@@ DUMPED with agent %s !!!!!!!! HIDE n SLEEP' %s			
-		result = fetch(source,None, None, AGENTS[random.randint(0,len(AGENTS)-1)])
+		result = fetch(source,None, None, random.choice(AGENTS))
 	return result 
 
 
