@@ -1,0 +1,4 @@
+*.html
+*.pyc
+log.txt
+configs.py

@@ -1,0 +1,9 @@
+Process started: <Process(PoolWorker-9, started daemon)>
+Traceback (most recent call last):
+  File "tester.py", line 357, in <module>
+    p.map(start_multiprocessing , all_series)
+  File "/usr/lib/python2.7/multiprocessing/pool.py", line 225, in map
+    return self.map_async(func, iterable, chunksize).get()
+  File "/usr/lib/python2.7/multiprocessing/pool.py", line 517, in get
+    raise self._value
+UnicodeEncodeError: 'latin-1' codec can't encode character u'\u200f' in position 18: ordinal not in range(256)

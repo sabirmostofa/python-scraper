@@ -1,5 +1,5 @@
 from bs4 import BeautifulSoup
-import opener, re, sys, socket, random, math,time, multiprocessing, threading
+import opener, configs, re, sys, socket, random, math,time, multiprocessing, threading
 from urlparse import urlparse
 from base64 import standard_b64decode
 import MySQLdb as mdb
@@ -223,7 +223,7 @@ def get_all_series_links_thread(tot):
 	
 	# starting multiprocess
 def start_multiprocessing((series_name, series_link)):
-	con=mdb.connect('localhost','root','11235813','vidsearch')
+	con=mdb.connect(configs.HOST,configs.USER,configs.PASS,configs.DB)
 	print 'Process started: %s' % multiprocessing.current_process()
 	i_have_got_series_name((series_link,series_name,con))
 	print 'Process ended: %s' % multiprocessing.current_process()
