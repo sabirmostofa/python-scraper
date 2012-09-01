@@ -71,6 +71,8 @@ def open_anything(url,etag=None,last_modified=None,agent=USER_AGENT):
 def fetch(source, etag=None, last_modified=None, agent=USER_AGENT,fetch_try=FETCH_TOTAL_TRY):
 	result = {}
 	result['data']='nothing'
+	#result['data']=urllib2.urlopen(source).read()
+	#return result
 	try:
 		f = open_anything(source, etag, last_modified, agent)
 		result['data'] = f.read()

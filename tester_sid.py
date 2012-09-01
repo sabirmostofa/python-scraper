@@ -1,22 +1,17 @@
 from bs4 import BeautifulSoup
-import opener, configs, re, sys, socket, random, math,time, multiprocessing, threading, marshal
-#import logging
+import opener, configs, re, sys, socket, random, math,time, multiprocessing, threading
 from urlparse import urlparse
 from base64 import standard_b64decode
 import MySQLdb as mdb
 from datetime import datetime
 from multiprocessing import Pool
-import urllib2
+
 
 
 socket.setdefaulttimeout(15)
-WORKER = 3 # Number of processor = 4
-THREAD_NUM = 20
-THREAD_NUM_PER_PRO = 7
+WORKER = 7
+THREAD_NUM = 4
 TEST = 0
-#LOG_FILE='1channel.log'
-#logging.basicConfig(filename=LOG_FILE,level=logging.DEBUG,)
-
 
 def get_series_id_in_database(name,link,d,con):
 	
@@ -45,10 +40,8 @@ def set_season_episode(series_id,episode_link,season,episode,con):
 
 def i_have_got_series_episode_url(name,series_id,url,season,episode,con):
 	#print '\n\nName: %s\nSeason: %s .Episode: %s' %(name,season,episode)
-	#data=urllib2.open(url).read()
-	
 	data=opener.fetch(url)['data']
-	soup=BeautifulSoup(data, 'lxml')
+	soup=BeautifulSoup(data)
 	l=soup.find_all('a')
 	reg=re.compile(r'.*?url=(.+?)&domain.*')
 	reg2=re.compile(r'.*external.php.*')
@@ -74,7 +67,7 @@ def i_have_got_series_episode_url(name,series_id,url,season,episode,con):
 def i_have_got_series_name((url,name,con)):
 	#~ print 'Series:%s#%s' %(name,url)
 	data=opener.fetch(url)['data']
-	soup=BeautifulSoup(data, 'lxml')
+	soup=BeautifulSoup(data)
 	
 	released_date=datetime.today()
 	
@@ -86,16 +79,14 @@ def i_have_got_series_name((url,name,con)):
 	except:
 		pass
 	
-	imdb_id="-1"
+	imdb_link="-1"
 	try:
 		imdb_link=soup.select('.mlink_imdb')[0].find_all('a')
 		imdb_link=imdb_link[0].get('href')
-		if re.search(r'\d+', imdb_link):
-			imdb_id = re.search(r'\d+', imdb_link)
 	except:
 		pass
 	
-	series_id_in_database=get_series_id_in_database(name,imdb_id,released_date,con)
+	series_id_in_database=get_series_id_in_database(name,imdb_link,released_date,con)
 	
 	l=soup.find_all('a')
 	t1=url;
@@ -124,7 +115,7 @@ def i_have_got_page_number(url):
 	#~ f=open(url_to,'w')
 	#~ f.write(data)
 	#~ return
-	soup=BeautifulSoup(data,'lxml')
+	soup=BeautifulSoup(data)
 	l=soup.find_all('a')
 	reg=re.compile(r'.*/watch-\d+-(.*)')
 	for i in l:
@@ -175,7 +166,7 @@ def get_all_series_links(pages):
 		#~ f=open(url_to,'w')
 		#~ f.write(data)
 		#~ return
-		soup=BeautifulSoup(data, 'lxml')
+		soup=BeautifulSoup(data)
 		l=soup.find_all('a')
 		reg=re.compile(r'.*/watch-\d+-(.*)')
 		for i in l:
@@ -210,7 +201,7 @@ def get_all_series_links_thread(tot):
 		#~ f=open(url_to,'w')
 		#~ f.write(data)
 		#~ return
-		soup=BeautifulSoup(data,'lxml')
+		soup=BeautifulSoup(data)
 		l=soup.find_all('a')
 		reg=re.compile(r'.*/watch-\d+-(.*)')
 		for i in l:
@@ -233,60 +224,15 @@ def get_all_series_links_thread(tot):
 	# starting multiprocess
 def start_multiprocessing((series_name, series_link)):
 	series_name=re.sub("&#(\d+)(;|(?=\s))", _callback, series_name)
-	con=mdb.connect(configs.HOST,configs.USER,configs.PASS, configs.DB, charset='utf8')
-	#~ log_id=uuid.uuid4()
-	#~ LOG_FILENAME='/home/vid/1channnel%s.log' % log_id
-	#~ logging.basicConfig(filename=LOG_FILENAME,level=logging.DEBUG,)
-
+	con=mdb.connect(configs.HOST,configs.USER,configs.PASS,configs.DB)
 	#print 'Process started: %s' % multiprocessing.current_process()
 	try:
 		i_have_got_series_name((series_link,series_name,con))
 	except:
-		#logging.exception('Got exception in series: %s' % series_name)
-		raise
+		print 'error after mapping'
 	#print 'Process ended: %s' % multiprocessing.current_process()
 	con.close()
-	# starting multiprocess
 	
-def start_threads_in_process((series_name, series_link)):
-	series_name=re.sub("&#(\d+)(;|(?=\s))", _callback, series_name)
-	#~ con=mdb.connect(configs.HOST,configs.USER,configs.PASS, configs.DB, charset='utf8')
-	#~ log_id=uuid.uuid4()
-	#~ LOG_FILENAME='/home/vid/1channnel%s.log' % log_id
-	#~ logging.basicConfig(filename=LOG_FILENAME,level=logging.DEBUG,)
-
-	#print 'Process started: %s' % multiprocessing.current_process()
-	con=mdb.connect(configs.HOST,configs.USER,configs.PASS, configs.DB, charset='utf8')
-	try:
-		i_have_got_series_name((series_link,series_name,con))
-	except:
-		#logging.exception('Got exception in series: %s' % series_name)
-		raise
-	#print 'Process ended: %s' % multiprocessing.current_process()
-	con.close()
-
-# sending one by one to the thread
-def ini_thread(series_list):
-	for i in series_list:
-		if random.randint(0,1) == 1:
-			time.sleep(2)
-		start_threads_in_process(i)
-	#con.close()	
-	
-	# starting multiprocess
-def start_multiprocessing_with_threads(chunk_list):
-	print ' process started, chunk size: %s' % len(chunk_list)
-	chunk_thread_size = (len(chunk_list)+THREAD_NUM_PER_PRO-1)/THREAD_NUM_PER_PRO
-	chunks_for_process_threads=chunks(chunk_list, chunk_thread_size)
-	for i in range(THREAD_NUM_PER_PRO):
-		#~ get_all_series_links_thread(thread_chunks[i])
-		#~ continue
-		thread = threading.Thread(target=ini_thread, args=(chunks_for_process_threads[i],))
-		thread.start()
-		threads.append(thread)
-	for thread in threads:
-		thread.join()
-
 	
 
 def generate_all_the_main_page_name():
@@ -302,7 +248,7 @@ def generate_all_the_main_page_name():
 	for url in l:
 		page_count=1
 		data=opener.fetch(url)['data']
-		soup=BeautifulSoup(data,'lxml')
+		soup=BeautifulSoup(data)
 		l=soup.select('.pagination > a ')		
 		
 		if len(l) != 0:
@@ -321,7 +267,7 @@ def generate_main_pages_thread(url):
 	#print url
 	page_count=1
 	data=opener.fetch(url)['data']
-	soup=BeautifulSoup(data, 'lxml')
+	soup=BeautifulSoup(data)
 	l=soup.select('.pagination > a ')		
 		
 	if len(l) != 0:
@@ -356,14 +302,11 @@ if __name__=='__main__':
 	
 	
 	#Generating all the page links using threading
-	
-	t1=time.time()
 	pages = []
 	tot=[]
 	pages.append('http://www.1channel.ch/?letter=123&tv')
 	for i in range(ord('a'),ord('z')+1):
 		pages.append('http://www.1channel.ch/?letter='+str(chr(i))+'&tv')
-	
 	
 	
 	thread_pages=[]
@@ -402,42 +345,47 @@ if __name__=='__main__':
 		threads.append(thread)
 	for thread in threads:
 		thread.join()
+	import marshal
+	#marshalling series
+	f=open('marshalled','wb')
+	marshal.dump(all_series, f)
+	f.close()
+	print 'done'
+	sys.exit()
 	print 'threading done'
 	print 'TOTAL SERIES %s' % len(all_series)
-		
+	all_series=[(s.encode('ascii', 'xmlcharrefreplace'),i) for s,i in all_series ]
+	error_counter=0
+	for  i in all_series:
+		try:
+			i[1].encode('ascii')
+		except:
+			error_counter+=1
+			print i[1]
+	print error_counter
+	sys.exit()
 	#~ all_series=get_all_series_links(tot)		
 	random.shuffle(all_series)
 	#default encoding ASCII error proned
-	#~ all_series=[(s.encode('ascii', 'xmlcharrefreplace'),i) for s,i in all_series ]
-	#~ print all_series[0]
+	#all_series=[(s.encode('latin-1', 'xmlcharrefreplace'),i) for s,i in all_series ]
+	print all_series[0]
 	#sys.exit()
 	#~ sys.exit()
-	#~ print 'Total pages to loop over: %s' % len(tot)
-	#~ print 'Total Series to loop over: %s' % len(all_series)
+	print 'Total pages to loop over: %s' % len(tot)
+	print 'Total Series to loop over: %s' % len(all_series)
 	#~ print tot
 	#~ print len(tot)
 	#~ sys.exit()
 	
 	# Starting multiprocessing
 	p=Pool(processes=WORKER)
-	chunk_size = (len(all_series)+WORKER-1)/WORKER
+	chunk_size = int(math.ceil(len(all_series)/WORKER))
 	print 'Chunk Size set to: %s' % chunk_size	
 	
-	series_to_process = chunks(all_series, chunk_size)
-	
-	#try:
-#	for i in all_series:
-#		start_multiprocessing(i)
-	p.map(start_multiprocessing_with_threads , series_to_process)
-	t2 = time.time()
-	t = t2-t1
-	print '%s Hours %s Seconds' %(int(t/3600),t%3600)
-	#~ f=open('marshalled')
-	#~ all_series=marshal.load(f)
-	#~ for i in all_series:
-		#~ start_multiprocessing(i)
-#	except:
-#		print 'Process Allocation Error^^^^^^^^^^^^^^^^^'
+	try:
+		p.map(start_multiprocessing , all_series)
+	except:
+		print 'Process Allocation Error^^^^^^^^^^^^^^^^^'
 	
 		
 	#~ p.map_async(get_page_count_and_go_deeper,tot)

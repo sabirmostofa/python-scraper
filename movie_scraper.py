@@ -18,61 +18,37 @@ TEST = 0
 #logging.basicConfig(filename=LOG_FILE,level=logging.DEBUG,)
 
 
-def get_series_id_in_database(name,link,d,con):
+def get_movies_id_in_database(name,link,d,con):
 	
 	cur=con.cursor(mdb.cursors.DictCursor)
-	cur.execute("SELECT * FROM `vs_series` WHERE `series_name`=%s",name)
+	cur.execute("SELECT * FROM `vs_movies` WHERE `movie_name`=%s",name)
 	res=cur.fetchone()
 	if res:
-		return res['series_id']
+		return res['movies_id']
 	else :
-		sql='''INSERT ignore INTO `vs_series`(`series_name`, `imdb_link`, `series_release_date`) VALUES (%s,%s,%s)'''
+		sql='''INSERT ignore INTO `vs_movies`(`movie_name`, `imdb_link`, `movies_release_date`) VALUES (%s,%s,%s)'''
 		args=(name,link,d)
 		cur.execute(sql,args)
-		return get_series_id_in_database(name,link,d,con)
+		return get_movies_id_in_database(name,link,d,con)
 
-def set_season_episode(series_id,episode_link,season,episode,con):
+def insert_into_links_table(movies_id, link, con):
 	
 	cur=con.cursor()
-	cur.execute('SELECT * FROM `vs_series_links` WHERE `series_id`=%s AND `link_url`=%s',(series_id,episode_link))
+	cur.execute('SELECT * FROM `vs_links` WHERE `movies_id`=%s AND `link_url`=%s',(movies_id,link))
 	res=cur.fetchone()
 	if res:
 		return
 	else :
-		sql='''INSERT ignore INTO `vs_series_links`(`series_id`, `season`, `episode`, `link_url`) VALUES (%s,%s,%s,%s)'''
-		args=(series_id,season,episode,episode_link,)
+		sql='''INSERT ignore INTO `vs_links`(`movies_id`, `link_url`) VALUES (%s,%s)'''
+		args=(movies_id,link,)
 		cur.execute(sql,args)
 
-def i_have_got_series_episode_url(name,series_id,url,season,episode,con):
-	#print '\n\nName: %s\nSeason: %s .Episode: %s' %(name,season,episode)
-	#data=urllib2.open(url).read()
-	
-	data=opener.fetch(url)['data']
-	soup=BeautifulSoup(data, 'lxml')
-	l=soup.find_all('a')
-	reg=re.compile(r'.*?url=(.+?)&domain.*')
-	reg2=re.compile(r'.*external.php.*')
-	
-	for i in l:
-		if not i.has_key('href'):
-			continue
-		ref=i['href']
-		parsed=urlparse(ref)
-		try:
-			t1=parsed[2]
-			if not reg2.match(t1):
-				continue
-			m=reg.match(parsed[4])
-			final_url=standard_b64decode(m.group(1))
-			set_season_episode(series_id,final_url,season,episode,con)
-		except:
-			pass
-	
 
 
 
-def i_have_got_series_name((url,name,con)):
-	#~ print 'Series:%s#%s' %(name,url)
+
+def i_have_got_movies_name((url,name,con)):
+	#~ print 'movies:%s#%s' %(name,url)
 	data=opener.fetch(url)['data']
 	soup=BeautifulSoup(data, 'lxml')
 	
@@ -95,75 +71,37 @@ def i_have_got_series_name((url,name,con)):
 	except:
 		pass
 	
-	series_id_in_database=get_series_id_in_database(name,imdb_id,released_date,con)
-	
+	movies_id_in_database=get_movies_id_in_database(name,imdb_id,released_date,con)
 	l=soup.find_all('a')
-	t1=url;
-	t1=t1.replace('http://www.1channel.ch/watch','tv')
-	t1='/'+t1+"/season-(\d+)-episode-(\d+).*"
-	reg=re.compile(t1)
+	reg=re.compile(r'.*?url=(.+?)&domain.*')
+	reg2=re.compile(r'.*external.php.*')
 	
 	for i in l:
 		if not i.has_key('href'):
 			continue
-		m=reg.match(i.get('href'))
-		if m:
-			episode_link="http://www.1channel.ch"+m.group(0)
-			season=m.group(1)
-			episode=m.group(2)
-			i_have_got_series_episode_url(name,series_id_in_database,episode_link,season,episode,con)
+		ref=i['href']
+		parsed=urlparse(ref)
+		try:
+			t1=parsed[2]
+			if not reg2.match(t1):
+				continue
+			m=reg.match(parsed[4])
+			final_url=standard_b64decode(m.group(1))
+			insert_into_links_table(movie_id,final_url, con)
+		except:
+			pass
 	
 
 
 
 
-def i_have_got_page_number(url):
-	
-	data=opener.fetch(url)['data']
-	#~ url_to = '%s.html'%i
-	#~ f=open(url_to,'w')
-	#~ f.write(data)
-	#~ return
-	soup=BeautifulSoup(data,'lxml')
-	l=soup.find_all('a')
-	reg=re.compile(r'.*/watch-\d+-(.*)')
-	for i in l:
-		if not i.has_key('href'):
-			continue;
-		if not i.has_key('title'):
-			continue;
-		link =i.get('href')
-		m=reg.match(link)
-		if m:
-			series_name=i.get('title')
-			if 'Watch' in series_name:
-				series_name=series_name[6:-7].strip()
-			series_link="http://www.1channel.ch"+m.group(0)
-			i_have_got_series_name(series_link,series_name)
 
 
-def get_page_count_and_go_deeper(url):
-	#~ data=opener.fetch(url)['data']
-	#~ soup=BeautifulSoup(data)
-	#~ l=soup.select('.pagination > a ')
-	#~ ref = l[len(l)-1]['href']
-	#~ reg=re.compile(r'.*?page=(\d+).*?')
-	#~ page_count=1
-	#~ m=reg.match(ref)
-	#~ if m:
-		#~ page_count=int(m.group(1))
-	#~ print page_count
-	#~ 
-	#~ 
-	#~ for i in range(1,page_count+1):
-		#~ new_url=url+"=&page="+str(i)
-		#~ print new_url
-		new_url=url
-		i_have_got_page_number(new_url)
+
 		
-
-def get_all_series_links(pages):
-	(all_series, counter)=([], 0)
+#~ 
+def get_all_movies_links(pages):
+	(all_movies, counter)=([], 0)
 	
 	for url in pages:
 		counter+=1
@@ -186,16 +124,16 @@ def get_all_series_links(pages):
 			link =i.get('href')
 			m=reg.match(link)
 			if m:
-				series_name=i.get('title')
-				if 'Watch' in series_name:
-					series_name=series_name[6:-7].strip()
-				series_link="http://www.1channel.ch"+m.group(0)
-				all_series.append((series_name, series_link))
+				movies_name=i.get('title')
+				if 'Watch' in movies_name:
+					movies_name=movies_name[6:-7].strip()
+				movies_link="http://www.1channel.ch"+m.group(0)
+				all_movies.append((movies_name, movies_link))
 	
-	return all_series
+	return all_movies
 	
 	
-def get_all_series_links_thread(tot):
+def get_all_movies_links_thread(tot):
 	
 	#print 'inside a thread@@@@@@@@@@@@@!!!!!!!!!!!!'
 	counter=0
@@ -221,18 +159,18 @@ def get_all_series_links_thread(tot):
 			link =i.get('href')
 			m=reg.match(link)
 			if m:
-				series_name=i.get('title')
-				if 'Watch' in series_name:
-					series_name=series_name[6:-7].strip()
-				series_link="http://www.1channel.ch"+m.group(0)
-				all_series.append((series_name, series_link))
+				movie_name=i.get('title')
+				if 'Watch' in movie_name:
+					movie_name=movie_name[6:-7].strip()
+				movie_link="http://www.1channel.ch"+m.group(0)
+				all_movies.append((movie_name, movie_link))
 	
 	
 	
 	
 	# starting multiprocess
-def start_multiprocessing((series_name, series_link)):
-	series_name=re.sub("&#(\d+)(;|(?=\s))", _callback, series_name)
+def start_multiprocessing((movies_name, movies_link)):
+	movies_name=re.sub("&#(\d+)(;|(?=\s))", _callback, movies_name)
 	con=mdb.connect(configs.HOST,configs.USER,configs.PASS, configs.DB, charset='utf8')
 	#~ log_id=uuid.uuid4()
 	#~ LOG_FILENAME='/home/vid/1channnel%s.log' % log_id
@@ -240,16 +178,16 @@ def start_multiprocessing((series_name, series_link)):
 
 	#print 'Process started: %s' % multiprocessing.current_process()
 	try:
-		i_have_got_series_name((series_link,series_name,con))
+		i_have_got_movies_name((movies_link,movies_name,con))
 	except:
-		#logging.exception('Got exception in series: %s' % series_name)
+		#logging.exception('Got exception in movies: %s' % movies_name)
 		raise
 	#print 'Process ended: %s' % multiprocessing.current_process()
 	con.close()
 	# starting multiprocess
 	
-def start_threads_in_process((series_name, series_link)):
-	series_name=re.sub("&#(\d+)(;|(?=\s))", _callback, series_name)
+def start_threads_in_process((movies_name, movies_link)):
+	movies_name=re.sub("&#(\d+)(;|(?=\s))", _callback, movies_name)
 	#~ con=mdb.connect(configs.HOST,configs.USER,configs.PASS, configs.DB, charset='utf8')
 	#~ log_id=uuid.uuid4()
 	#~ LOG_FILENAME='/home/vid/1channnel%s.log' % log_id
@@ -258,18 +196,18 @@ def start_threads_in_process((series_name, series_link)):
 	#print 'Process started: %s' % multiprocessing.current_process()
 	con=mdb.connect(configs.HOST,configs.USER,configs.PASS, configs.DB, charset='utf8')
 	try:
-		i_have_got_series_name((series_link,series_name,con))
+		i_have_got_movies_name((movies_link,movies_name,con))
 	except:
-		#logging.exception('Got exception in series: %s' % series_name)
+		#logging.exception('Got exception in movies: %s' % movies_name)
 		raise
 	#print 'Process ended: %s' % multiprocessing.current_process()
 	con.close()
 
 # sending one by one to the thread
-def ini_thread(series_list):
-	for i in series_list:
-		if random.randint(0,1) == 1:
-			time.sleep(2)
+def ini_thread(movies_list):
+	for i in movies_list:
+		#~ if random.randint(0,1) == 1:
+			#~ time.sleep(2)
 		start_threads_in_process(i)
 	#con.close()	
 	
@@ -279,7 +217,7 @@ def start_multiprocessing_with_threads(chunk_list):
 	chunk_thread_size = (len(chunk_list)+THREAD_NUM_PER_PRO-1)/THREAD_NUM_PER_PRO
 	chunks_for_process_threads=chunks(chunk_list, chunk_thread_size)
 	for i in range(THREAD_NUM_PER_PRO):
-		#~ get_all_series_links_thread(thread_chunks[i])
+		#~ get_all_movies_links_thread(thread_chunks[i])
 		#~ continue
 		thread = threading.Thread(target=ini_thread, args=(chunks_for_process_threads[i],))
 		thread.start()
@@ -295,7 +233,7 @@ def generate_all_the_main_page_name():
 	#~ if TEST:
 		#~ return l
 	for i in range(ord('a'),ord('z')+1):
-		l.append('http://www.1channel.ch/?letter='+str(chr(i))+'&tv')
+		l.append('http://www.1channel.ch/?letter='+str(chr(i)))
 	
 	#generating all pages with page number	
 	all_pages = [] 
@@ -350,7 +288,7 @@ def _callback(matches):
 if __name__=='__main__':
 	
 	#~ print generate_all_the_main_page_name()	
-	#~ i_have_got_series_name("http://www.1channel.ch/watch-9460-2020","hello")
+	#~ i_have_got_movies_name("http://www.1channel.ch/watch-9460-2020","hello")
 	#~ i_have_got_page_number('http://www.1channel.ch/?letter=123&tv&page=1')
 	#~ get_page_count_and_go_deeper('http://www.1channel.ch/?letter=123&tv')
 	
@@ -360,9 +298,9 @@ if __name__=='__main__':
 	t1=time.time()
 	pages = []
 	tot=[]
-	pages.append('http://www.1channel.ch/?letter=123&tv')
+	pages.append('http://www.1channel.ch/?letter=123')
 	for i in range(ord('a'),ord('z')+1):
-		pages.append('http://www.1channel.ch/?letter='+str(chr(i))+'&tv')
+		pages.append('http://www.1channel.ch/?letter='+str(chr(i)))
 	
 	
 	
@@ -379,8 +317,8 @@ if __name__=='__main__':
 	#~ tot = generate_all_the_main_page_name()
 	random.shuffle(tot)
 	
-	# Generating all the series links using threading
-	all_series=[]
+	# Generating all the movies links using threading
+	all_movies=[]
 	if len(tot)>THREAD_NUM:
 		thread_numbers=THREAD_NUM
 	else:
@@ -395,46 +333,46 @@ if __name__=='__main__':
 	print 'Pages split into: %s' % len(thread_chunks)
 	
 	for i in range(thread_numbers):
-		#~ get_all_series_links_thread(thread_chunks[i])
+		#~ get_all_movies_links_thread(thread_chunks[i])
 		#~ continue
-		thread = threading.Thread(target=get_all_series_links_thread, args=(thread_chunks[i],))
+		thread = threading.Thread(target=get_all_movies_links_thread, args=(thread_chunks[i],))
 		thread.start()
 		threads.append(thread)
 	for thread in threads:
 		thread.join()
 	print 'threading done'
-	print 'TOTAL SERIES %s' % len(all_series)
+	print 'TOTAL movies %s' % len(all_movies)
 		
-	#~ all_series=get_all_series_links(tot)		
-	random.shuffle(all_series)
+	#~ all_movies=get_all_movies_links(tot)		
+	random.shuffle(all_movies)
 	#default encoding ASCII error proned
-	#~ all_series=[(s.encode('ascii', 'xmlcharrefreplace'),i) for s,i in all_series ]
-	#~ print all_series[0]
+	#~ all_movies=[(s.encode('ascii', 'xmlcharrefreplace'),i) for s,i in all_movies ]
+	#~ print all_movies[0]
 	#sys.exit()
 	#~ sys.exit()
 	#~ print 'Total pages to loop over: %s' % len(tot)
-	#~ print 'Total Series to loop over: %s' % len(all_series)
+	#~ print 'Total movies to loop over: %s' % len(all_movies)
 	#~ print tot
 	#~ print len(tot)
 	#~ sys.exit()
 	
 	# Starting multiprocessing
 	p=Pool(processes=WORKER)
-	chunk_size = (len(all_series)+WORKER-1)/WORKER
+	chunk_size = (len(all_movies)+WORKER-1)/WORKER
 	print 'Chunk Size set to: %s' % chunk_size	
 	
-	series_to_process = chunks(all_series, chunk_size)
+	movies_to_process = chunks(all_movies, chunk_size)
 	
 	#try:
-#	for i in all_series:
+#	for i in all_movies:
 #		start_multiprocessing(i)
-	p.map(start_multiprocessing_with_threads , series_to_process)
+	p.map(start_multiprocessing_with_threads , movies_to_process)
 	t2 = time.time()
 	t = t2-t1
 	print '%s Hours %s Seconds' %(int(t/3600),t%3600)
 	#~ f=open('marshalled')
-	#~ all_series=marshal.load(f)
-	#~ for i in all_series:
+	#~ all_movies=marshal.load(f)
+	#~ for i in all_movies:
 		#~ start_multiprocessing(i)
 #	except:
 #		print 'Process Allocation Error^^^^^^^^^^^^^^^^^'
