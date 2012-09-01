@@ -12,7 +12,7 @@ import urllib2
 socket.setdefaulttimeout(15)
 WORKER = 3 # Number of processor = 4
 THREAD_NUM = 20
-THREAD_NUM_PER_PRO = 7
+THREAD_NUM_PER_PRO = 2
 TEST = 0
 #LOG_FILE='1channel.log'
 #logging.basicConfig(filename=LOG_FILE,level=logging.DEBUG,)
@@ -24,9 +24,9 @@ def get_movies_id_in_database(name,link,d,con):
 	cur.execute("SELECT * FROM `vs_movies` WHERE `movie_name`=%s",name)
 	res=cur.fetchone()
 	if res:
-		return res['movies_id']
+		return res['movie_id']
 	else :
-		sql='''INSERT ignore INTO `vs_movies`(`movie_name`, `imdb_link`, `movies_release_date`) VALUES (%s,%s,%s)'''
+		sql='''INSERT ignore INTO `vs_movies`(`movie_name`, `movie_channel_link`, `movie_release_date`) VALUES (%s,%s,%s)'''
 		args=(name,link,d)
 		cur.execute(sql,args)
 		return get_movies_id_in_database(name,link,d,con)
@@ -48,7 +48,7 @@ def insert_into_links_table(movies_id, link, con):
 
 
 def i_have_got_movies_name((url,name,con)):
-	#~ print 'movies:%s#%s' %(name,url)
+	print 'movie:%s#%s' %(name,url)
 	data=opener.fetch(url)['data']
 	soup=BeautifulSoup(data, 'lxml')
 	
@@ -302,8 +302,8 @@ if __name__=='__main__':
 	for i in range(ord('a'),ord('z')+1):
 		pages.append('http://www.1channel.ch/?letter='+str(chr(i)))
 	
-	
-	
+	#debug val
+	pages= ['http://www.1channel.ch/?letter=123']
 	thread_pages=[]
 	for i in range(len(pages)):
 		threadp = threading.Thread(target=generate_main_pages_thread, args=(pages[i],))
@@ -316,7 +316,8 @@ if __name__=='__main__':
 	print 'initial Threading done PAGES FOUND %s ' % len(tot)
 	#~ tot = generate_all_the_main_page_name()
 	random.shuffle(tot)
-	
+	#debug val
+	tot=[tot[0]]
 	# Generating all the movies links using threading
 	all_movies=[]
 	if len(tot)>THREAD_NUM:
@@ -355,14 +356,14 @@ if __name__=='__main__':
 	#~ print tot
 	#~ print len(tot)
 	#~ sys.exit()
-	
 	# Starting multiprocessing
 	p=Pool(processes=WORKER)
 	chunk_size = (len(all_movies)+WORKER-1)/WORKER
 	print 'Chunk Size set to: %s' % chunk_size	
 	
 	movies_to_process = chunks(all_movies, chunk_size)
-	
+	print(len(movies_to_process))
+	print movies_to_process
 	#try:
 #	for i in all_movies:
 #		start_multiprocessing(i)
