@@ -91,7 +91,7 @@ def i_have_got_series_name((url,name,con)):
 		imdb_link=soup.select('.mlink_imdb')[0].find_all('a')
 		imdb_link=imdb_link[0].get('href')
 		if re.search(r'\d+', imdb_link):
-			imdb_id = re.search(r'\d+', imdb_link)
+			imdb_id = re.search(r'\d+', imdb_link).group(0)
 	except:
 		pass
 	

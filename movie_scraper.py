@@ -11,7 +11,7 @@ import urllib2
 
 socket.setdefaulttimeout(15)
 WORKER = 3 # Number of processor = 4
-THREAD_NUM = 20
+THREAD_NUM = 6
 THREAD_NUM_PER_PRO = 2
 TEST = 0
 #LOG_FILE='1channel.log'
@@ -31,24 +31,24 @@ def get_movies_id_in_database(name,link,d,con):
 		cur.execute(sql,args)
 		return get_movies_id_in_database(name,link,d,con)
 
-def insert_into_links_table(movies_id, link, con):
+def insert_into_links_table(movie_id, link, con):
 	
 	cur=con.cursor()
-	cur.execute('SELECT * FROM `vs_links` WHERE `movies_id`=%s AND `link_url`=%s',(movies_id,link))
+	cur.execute('SELECT * FROM `vs_links` WHERE `movie_id`=%s AND `link_url`=%s',(movie_id,link))
 	res=cur.fetchone()
 	if res:
 		return
 	else :
-		sql='''INSERT ignore INTO `vs_links`(`movies_id`, `link_url`) VALUES (%s,%s)'''
-		args=(movies_id,link,)
+		sql='''INSERT ignore INTO `vs_links`(`movie_id`, `link_url`) VALUES (%s,%s)'''
+		args=(movie_id,link,)
 		cur.execute(sql,args)
 
 
 
 
-
-def i_have_got_movies_name((url,name,con)):
-	print 'movie:%s#%s' %(name,url)
+#prepares data for db insertion and calls 
+def i_have_got_movies_url((url,con)):
+	
 	data=opener.fetch(url)['data']
 	soup=BeautifulSoup(data, 'lxml')
 	
@@ -67,11 +67,18 @@ def i_have_got_movies_name((url,name,con)):
 		imdb_link=soup.select('.mlink_imdb')[0].find_all('a')
 		imdb_link=imdb_link[0].get('href')
 		if re.search(r'\d+', imdb_link):
-			imdb_id = re.search(r'\d+', imdb_link)
+			imdb_id = re.search(r'\d+', imdb_link).group(0)
+	except:
+		pass
+		
+	try:
+		a=soup.findAll(attrs={"property":"og:title"})
+		name = a[0]['content']
+		#~ print 'name: %s Url: %s' % (name, url)
 	except:
 		pass
 	
-	movies_id_in_database=get_movies_id_in_database(name,imdb_id,released_date,con)
+	movie_id=get_movies_id_in_database(name,imdb_id,released_date,con)
 	l=soup.find_all('a')
 	reg=re.compile(r'.*?url=(.+?)&domain.*')
 	reg2=re.compile(r'.*external.php.*')
@@ -99,40 +106,7 @@ def i_have_got_movies_name((url,name,con)):
 
 
 		
-#~ 
-def get_all_movies_links(pages):
-	(all_movies, counter)=([], 0)
-	
-	for url in pages:
-		counter+=1
-		if TEST:
-			if counter==2:
-				break
-		data=opener.fetch(url)['data']
-		#~ url_to = '%s.html'%i
-		#~ f=open(url_to,'w')
-		#~ f.write(data)
-		#~ return
-		soup=BeautifulSoup(data, 'lxml')
-		l=soup.find_all('a')
-		reg=re.compile(r'.*/watch-\d+-(.*)')
-		for i in l:
-			if not i.has_key('href'):
-				continue;
-			if not i.has_key('title'):
-				continue;
-			link =i.get('href')
-			m=reg.match(link)
-			if m:
-				movies_name=i.get('title')
-				if 'Watch' in movies_name:
-					movies_name=movies_name[6:-7].strip()
-				movies_link="http://www.1channel.ch"+m.group(0)
-				all_movies.append((movies_name, movies_link))
-	
-	return all_movies
-	
-	
+
 def get_all_movies_links_thread(tot):
 	
 	#print 'inside a thread@@@@@@@@@@@@@!!!!!!!!!!!!'
@@ -159,26 +133,21 @@ def get_all_movies_links_thread(tot):
 			link =i.get('href')
 			m=reg.match(link)
 			if m:
-				movie_name=i.get('title')
-				if 'Watch' in movie_name:
-					movie_name=movie_name[6:-7].strip()
 				movie_link="http://www.1channel.ch"+m.group(0)
-				all_movies.append((movie_name, movie_link))
+				if not movie_link in all_movies:
+					#~ print 'New Link found: %s' % movie_link
+					all_movies.append(movie_link)
 	
 	
 	
 	
 	# starting multiprocess
-def start_multiprocessing((movies_name, movies_link)):
-	movies_name=re.sub("&#(\d+)(;|(?=\s))", _callback, movies_name)
-	con=mdb.connect(configs.HOST,configs.USER,configs.PASS, configs.DB, charset='utf8')
-	#~ log_id=uuid.uuid4()
-	#~ LOG_FILENAME='/home/vid/1channnel%s.log' % log_id
-	#~ logging.basicConfig(filename=LOG_FILENAME,level=logging.DEBUG,)
+def start_multiprocessing(movie_link):
 
-	#print 'Process started: %s' % multiprocessing.current_process()
+	con=mdb.connect(configs.HOST,configs.USER,configs.PASS, configs.DB, charset='utf8')
+
 	try:
-		i_have_got_movies_name((movies_link,movies_name,con))
+		i_have_got_movies_url((movies_link, con))
 	except:
 		#logging.exception('Got exception in movies: %s' % movies_name)
 		raise
@@ -186,21 +155,13 @@ def start_multiprocessing((movies_name, movies_link)):
 	con.close()
 	# starting multiprocess
 	
-def start_threads_in_process((movies_name, movies_link)):
-	movies_name=re.sub("&#(\d+)(;|(?=\s))", _callback, movies_name)
-	#~ con=mdb.connect(configs.HOST,configs.USER,configs.PASS, configs.DB, charset='utf8')
-	#~ log_id=uuid.uuid4()
-	#~ LOG_FILENAME='/home/vid/1channnel%s.log' % log_id
-	#~ logging.basicConfig(filename=LOG_FILENAME,level=logging.DEBUG,)
-
-	#print 'Process started: %s' % multiprocessing.current_process()
+def start_threads_in_process(movie_link):
 	con=mdb.connect(configs.HOST,configs.USER,configs.PASS, configs.DB, charset='utf8')
+	
 	try:
-		i_have_got_movies_name((movies_link,movies_name,con))
+		i_have_got_movies_url((movie_link,con))
 	except:
-		#logging.exception('Got exception in movies: %s' % movies_name)
 		raise
-	#print 'Process ended: %s' % multiprocessing.current_process()
 	con.close()
 
 # sending one by one to the thread
@@ -227,36 +188,10 @@ def start_multiprocessing_with_threads(chunk_list):
 
 	
 
-def generate_all_the_main_page_name():
-	l=[]
-	l.append('http://www.1channel.ch/?letter=123&tv')
-	#~ if TEST:
-		#~ return l
-	for i in range(ord('a'),ord('z')+1):
-		l.append('http://www.1channel.ch/?letter='+str(chr(i)))
-	
-	#generating all pages with page number	
-	all_pages = [] 
-	for url in l:
-		page_count=1
-		data=opener.fetch(url)['data']
-		soup=BeautifulSoup(data,'lxml')
-		l=soup.select('.pagination > a ')		
-		
-		if len(l) != 0:
-			ref = l[len(l)-1]['href']
-			reg=re.compile(r'.*?page=(\d+)')
-			#~ print url, l[len(l)-1]['href']
-			m=reg.match(ref)
-			if m:
-				page_count=int(m.group(1))
-				#~ print page_count
-		for i in range(1,page_count+1):
-			all_pages.append(url+"=&page="+str(i))
-	return all_pages
+
 
 def generate_main_pages_thread(url):
-	#print url
+	print "Getting page list for: %s" % url
 	page_count=1
 	data=opener.fetch(url)['data']
 	soup=BeautifulSoup(data, 'lxml')
@@ -271,7 +206,25 @@ def generate_main_pages_thread(url):
 			page_count=int(m.group(1))
 			#~ print page_count
 	for i in range(1,page_count+1):
-		tot.append(url+"=&page="+str(i))
+		tot.append(url+"&page="+str(i))
+def generate_main_pages_thread_two(li):
+	for url in li:
+		print "Getting page list for: %s" % url
+		page_count=1
+		data=opener.fetch(url)['data']
+		soup=BeautifulSoup(data, 'lxml')
+		l=soup.select('.pagination > a ')		
+			
+		if len(l) != 0:
+			ref = l[len(l)-1]['href']
+			reg=re.compile(r'.*?page=(\d+)')
+			#~ print url, l[len(l)-1]['href']
+			m=reg.match(ref)
+			if m:
+				page_count=int(m.group(1))
+				#~ print page_count
+		for i in range(1,page_count+1):
+			tot.append(url+"&page="+str(i))
 	
 	
 def chunks(l, n):
@@ -287,10 +240,7 @@ def _callback(matches):
 
 if __name__=='__main__':
 	
-	#~ print generate_all_the_main_page_name()	
-	#~ i_have_got_movies_name("http://www.1channel.ch/watch-9460-2020","hello")
-	#~ i_have_got_page_number('http://www.1channel.ch/?letter=123&tv&page=1')
-	#~ get_page_count_and_go_deeper('http://www.1channel.ch/?letter=123&tv')
+
 	
 	
 	#Generating all the page links using threading
@@ -298,26 +248,39 @@ if __name__=='__main__':
 	t1=time.time()
 	pages = []
 	tot=[]
-	pages.append('http://www.1channel.ch/?letter=123')
+	pages.append('http://www.1channel.ch/index.php?letter=123')
 	for i in range(ord('a'),ord('z')+1):
-		pages.append('http://www.1channel.ch/?letter='+str(chr(i)))
+		pages.append('http://www.1channel.ch/index.php?letter='+str(chr(i)))
 	
+	print 'Letter Pages: %s' % len(pages)	
 	#debug val
-	pages= ['http://www.1channel.ch/?letter=123']
+	#pages= ['http://www.1channel.ch/index.php?letter=123']
 	thread_pages=[]
-	for i in range(len(pages)):
-		threadp = threading.Thread(target=generate_main_pages_thread, args=(pages[i],))
+	
+	# Running 3 Threads
+	pages_debug=chunks(pages, (len(pages)+THREAD_NUM-1)/THREAD_NUM )
+	
+	for i in range(THREAD_NUM):
+		threadp = threading.Thread(target=generate_main_pages_thread_two, args=(pages_debug[i],))
 		threadp.start()
 		thread_pages.append(threadp)
 		
 	for thread in thread_pages:
 		thread.join()
-		
+
+	#~ #debug
+	#~ for i in pages:
+		#~ generate_main_pages_thread(i)
+	
 	print 'initial Threading done PAGES FOUND %s ' % len(tot)
+	t2 = time.time()
+	print 'Time to get ALl Pages: %s Seconds' %(t2-t1)
+	#~ sys.exit()
 	#~ tot = generate_all_the_main_page_name()
 	random.shuffle(tot)
 	#debug val
-	tot=[tot[0]]
+	#tot=[tot[0]]
+	#print 'TTTTTTTTTTTOTT %s' %tot
 	# Generating all the movies links using threading
 	all_movies=[]
 	if len(tot)>THREAD_NUM:
@@ -325,7 +288,7 @@ if __name__=='__main__':
 	else:
 		thread_numbers=1
 		
-	chunk_length = int(math.ceil(len(tot)/THREAD_NUM))
+	chunk_length = (len(tot)+THREAD_NUM-1)/THREAD_NUM
 	if chunk_length == 0:
 		chunk_length = 1
 	thread_chunks=chunks(tot, chunk_length )
@@ -343,27 +306,24 @@ if __name__=='__main__':
 		thread.join()
 	print 'threading done'
 	print 'TOTAL movies %s' % len(all_movies)
+	
+	t2 = time.time()
+	print 'Time to get ALl movies: %s Seconds' %(t2-t1)
 		
 	#~ all_movies=get_all_movies_links(tot)		
 	random.shuffle(all_movies)
-	#default encoding ASCII error proned
-	#~ all_movies=[(s.encode('ascii', 'xmlcharrefreplace'),i) for s,i in all_movies ]
-	#~ print all_movies[0]
-	#sys.exit()
-	#~ sys.exit()
-	#~ print 'Total pages to loop over: %s' % len(tot)
-	#~ print 'Total movies to loop over: %s' % len(all_movies)
-	#~ print tot
-	#~ print len(tot)
-	#~ sys.exit()
-	# Starting multiprocessing
+	#~ f=open('movie_marshal','wb');
+	#~ marshal.dump(all_movies, f)
+	#~ f.close()
+	sys.exit()
+
 	p=Pool(processes=WORKER)
 	chunk_size = (len(all_movies)+WORKER-1)/WORKER
 	print 'Chunk Size set to: %s' % chunk_size	
 	
 	movies_to_process = chunks(all_movies, chunk_size)
-	print(len(movies_to_process))
-	print movies_to_process
+	#~ print(len(movies_to_process))
+	#~ print movies_to_process
 	#try:
 #	for i in all_movies:
 #		start_multiprocessing(i)
