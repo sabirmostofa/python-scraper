@@ -199,8 +199,17 @@ def get_put_unique_eps(url='show.html'):
 		pass
 	
 	series_id = get_series_id_in_database(title, imdb_id, released_date, con)
-	all_eps=soup(attrs={'class':'tv_episode_item'})	
-	all_eps[:] = [base+x('a')[0].get('href') for x in all_eps ]
+	all_eps=soup(attrs={'class':'tv_episode_item'})
+
+	
+	# getting all eps except the transparent one which has two classes		
+	all_eps[:] = [base+x('a')[0].get('href') if len(x['class']) >1 else None for x in all_eps ]
+	
+	all_eps = list(set(all_eps))
+	if None in all_eps:
+		all_eps.remove(None)
+
+	
 	cur=con.cursor(mdb.cursors.DictCursor)
 	for link in all_eps:
 		#~ print 'episode link: %s' % link
