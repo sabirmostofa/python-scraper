@@ -10,13 +10,17 @@ import urllib2
 
 
 socket.setdefaulttimeout(15)
-WORKER = 3 # Number of processor = 4
-THREAD_NUM = 20
-THREAD_NUM_PER_PRO = 7
+WORKER = 2 # Number of processor = 4
+THREAD_NUM = 5
+THREAD_NUM_PER_PRO = 3
 TEST = 0
 #LOG_FILE='1channel.log'
 #logging.basicConfig(filename=LOG_FILE,level=logging.DEBUG,)
 
+def get_title(soup):
+	title=''
+	title = soup(attrs={"property":"og:title"})[0]['content'].strip()
+	return title
 
 def get_series_id_in_database(name,link,d,con):
 	
@@ -71,11 +75,13 @@ def i_have_got_series_episode_url(name,series_id,url,season,episode,con):
 
 
 
-def i_have_got_series_name((url,name,con)):
+def i_have_got_series_link(url, con):
 	#~ print 'Series:%s#%s' %(name,url)
 	data=opener.fetch(url)['data']
 	soup=BeautifulSoup(data, 'lxml')
-	
+	name = get_title(soup)
+	if len(name) == 0:
+		return
 	released_date=datetime.today()
 	
 	try:
@@ -91,75 +97,31 @@ def i_have_got_series_name((url,name,con)):
 		imdb_link=soup.select('.mlink_imdb')[0].find_all('a')
 		imdb_link=imdb_link[0].get('href')
 		if re.search(r'\d+', imdb_link):
-			imdb_id = re.search(r'\d+', imdb_link).group(0)
+			imdb_id = re.search(r'\d+', imdb_link)
 	except:
 		pass
 	
 	series_id_in_database=get_series_id_in_database(name,imdb_id,released_date,con)
 	
-	l=soup.find_all('a')
-	t1=url;
-	t1=t1.replace('http://www.1channel.ch/watch','tv')
-	t1='/'+t1+"/season-(\d+)-episode-(\d+).*"
-	reg=re.compile(t1)
+	#getting all episodes
+	all_eps=soup(attrs={'class':'tv_episode_item'})
+		
+	# getting all eps except the transparent one 		
+	all_eps[:] = [base+x('a')[0].get('href') if not 'transp2' in x['class'] else None for x in all_eps ]
+
+	all_eps = list(set(all_eps))
+	if None in all_eps:
+		all_eps.remove(None)
 	
-	for i in l:
-		if not i.has_key('href'):
-			continue
-		m=reg.match(i.get('href'))
-		if m:
-			episode_link="http://www.1channel.ch"+m.group(0)
-			season=m.group(1)
-			episode=m.group(2)
-			i_have_got_series_episode_url(name,series_id_in_database,episode_link,season,episode,con)
+	for ep_link in all_eps:
+		matches = re.search(r'season-(\d+)-episode-(\d+)', ep_link)
+		season = int(matches.group(1))
+		episode = int(matches.group(2))
+		i_have_got_series_episode_url(name,series_id_in_database,ep_link,season,episode,con)
 	
 
 
 
-
-def i_have_got_page_number(url):
-	
-	data=opener.fetch(url)['data']
-	#~ url_to = '%s.html'%i
-	#~ f=open(url_to,'w')
-	#~ f.write(data)
-	#~ return
-	soup=BeautifulSoup(data,'lxml')
-	l=soup.find_all('a')
-	reg=re.compile(r'.*/watch-\d+-(.*)')
-	for i in l:
-		if not i.has_key('href'):
-			continue;
-		if not i.has_key('title'):
-			continue;
-		link =i.get('href')
-		m=reg.match(link)
-		if m:
-			series_name=i.get('title')
-			if 'Watch' in series_name:
-				series_name=series_name[6:-7].strip()
-			series_link="http://www.1channel.ch"+m.group(0)
-			i_have_got_series_name(series_link,series_name)
-
-
-def get_page_count_and_go_deeper(url):
-	#~ data=opener.fetch(url)['data']
-	#~ soup=BeautifulSoup(data)
-	#~ l=soup.select('.pagination > a ')
-	#~ ref = l[len(l)-1]['href']
-	#~ reg=re.compile(r'.*?page=(\d+).*?')
-	#~ page_count=1
-	#~ m=reg.match(ref)
-	#~ if m:
-		#~ page_count=int(m.group(1))
-	#~ print page_count
-	#~ 
-	#~ 
-	#~ for i in range(1,page_count+1):
-		#~ new_url=url+"=&page="+str(i)
-		#~ print new_url
-		new_url=url
-		i_have_got_page_number(new_url)
 		
 
 def get_all_series_links(pages):
@@ -216,40 +178,22 @@ def get_all_series_links_thread(tot):
 		for i in l:
 			if not i.has_key('href'):
 				continue;
-			if not i.has_key('title'):
-				continue;
+
 			link =i.get('href')
 			m=reg.match(link)
 			if m:
-				series_name=i.get('title')
-				if 'Watch' in series_name:
-					series_name=series_name[6:-7].strip()
+				#~ series_name=i.get('title')
+				#~ if 'Watch' in series_name:
+					#~ series_name=series_name[6:-7].strip()
 				series_link="http://www.1channel.ch"+m.group(0)
-				all_series.append((series_name, series_link))
+				all_series.append(series_link)
 	
 	
 	
-	
-	# starting multiprocess
-def start_multiprocessing((series_name, series_link)):
-	series_name=re.sub("&#(\d+)(;|(?=\s))", _callback, series_name)
-	con=mdb.connect(configs.HOST,configs.USER,configs.PASS, configs.DB, charset='utf8')
-	#~ log_id=uuid.uuid4()
-	#~ LOG_FILENAME='/home/vid/1channnel%s.log' % log_id
-	#~ logging.basicConfig(filename=LOG_FILENAME,level=logging.DEBUG,)
 
-	#print 'Process started: %s' % multiprocessing.current_process()
-	try:
-		i_have_got_series_name((series_link,series_name,con))
-	except:
-		#logging.exception('Got exception in series: %s' % series_name)
-		raise
-	#print 'Process ended: %s' % multiprocessing.current_process()
-	con.close()
-	# starting multiprocess
 	
-def start_threads_in_process((series_name, series_link)):
-	series_name=re.sub("&#(\d+)(;|(?=\s))", _callback, series_name)
+def start_threads_in_process(series_link):
+	#~ series_name=re.sub("&#(\d+)(;|(?=\s))", _callback, series_name)
 	#~ con=mdb.connect(configs.HOST,configs.USER,configs.PASS, configs.DB, charset='utf8')
 	#~ log_id=uuid.uuid4()
 	#~ LOG_FILENAME='/home/vid/1channnel%s.log' % log_id
@@ -258,9 +202,9 @@ def start_threads_in_process((series_name, series_link)):
 	#print 'Process started: %s' % multiprocessing.current_process()
 	con=mdb.connect(configs.HOST,configs.USER,configs.PASS, configs.DB, charset='utf8')
 	try:
-		i_have_got_series_name((series_link,series_name,con))
+		i_have_got_series_link(series_link, con)
 	except:
-		#logging.exception('Got exception in series: %s' % series_name)
+		print 'exception in %s ' % series_link
 		raise
 	#print 'Process ended: %s' % multiprocessing.current_process()
 	con.close()
@@ -268,8 +212,9 @@ def start_threads_in_process((series_name, series_link)):
 # sending one by one to the thread
 def ini_thread(series_list):
 	for i in series_list:
-		if random.randint(0,1) == 1:
-			time.sleep(2)
+		#if random.randint(0,1) == 1:
+			#time.sleep(2)
+
 		start_threads_in_process(i)
 	#con.close()	
 	
@@ -348,6 +293,7 @@ def _callback(matches):
 
 
 if __name__=='__main__':
+	base = 'http://www.1channel.ch'
 	
 	#~ print generate_all_the_main_page_name()	
 	#~ i_have_got_series_name("http://www.1channel.ch/watch-9460-2020","hello")
@@ -360,6 +306,7 @@ if __name__=='__main__':
 	t1=time.time()
 	pages = []
 	tot=[]
+	
 	pages.append('http://www.1channel.ch/?letter=123&tv')
 	for i in range(ord('a'),ord('z')+1):
 		pages.append('http://www.1channel.ch/?letter='+str(chr(i))+'&tv')
@@ -376,6 +323,7 @@ if __name__=='__main__':
 		thread.join()
 		
 	print 'initial Threading done PAGES FOUND %s ' % len(tot)
+	print 'Time to get ALl Pages: %s Seconds' %(time.time()-t1)
 	#~ tot = generate_all_the_main_page_name()
 	random.shuffle(tot)
 	
@@ -404,6 +352,8 @@ if __name__=='__main__':
 		thread.join()
 	print 'threading done'
 	print 'TOTAL SERIES %s' % len(all_series)
+
+	print 'Time to get ALl Series: %s Seconds' %(time.time()-t1)
 		
 	#~ all_series=get_all_series_links(tot)		
 	random.shuffle(all_series)
@@ -431,14 +381,16 @@ if __name__=='__main__':
 	p.map(start_multiprocessing_with_threads , series_to_process)
 	t2 = time.time()
 	t = t2-t1
-	print '%s Hours %s Seconds' %(int(t/3600),t%3600)
+	#Test with saved series in the file marshalled
 	#~ f=open('marshalled')
 	#~ all_series=marshal.load(f)
+	#~ all_series= all_series[:20]
 	#~ for i in all_series:
-		#~ start_multiprocessing(i)
+		#~ start_threads_in_process(i)
 #	except:
 #		print 'Process Allocation Error^^^^^^^^^^^^^^^^^'
 	
+	print '%s Hours %s Seconds' %(int(t/3600),t%3600)
 		
 	#~ p.map_async(get_page_count_and_go_deeper,tot)
 	

@@ -10,16 +10,18 @@ import urllib2
 
 
 socket.setdefaulttimeout(15)
-WORKER = 3 # Number of processor = 4
-THREAD_NUM = 6
+WORKER = 2 # Number of processor = 4
+THREAD_NUM = 3
 THREAD_NUM_PER_PRO = 2
 TEST = 0
 #LOG_FILE='1channel.log'
 #logging.basicConfig(filename=LOG_FILE,level=logging.DEBUG,)
 
 
-def get_movies_id_in_database(name,link,d,con):
-	
+def get_movies_id_in_database(name,link,d,con,count=0):
+	count+=1
+	if count>3:
+		return
 	cur=con.cursor(mdb.cursors.DictCursor)
 	cur.execute("SELECT * FROM `vs_movies` WHERE `movie_name`=%s",name)
 	res=cur.fetchone()
@@ -29,7 +31,7 @@ def get_movies_id_in_database(name,link,d,con):
 		sql='''INSERT ignore INTO `vs_movies`(`movie_name`, `movie_channel_link`, `movie_release_date`) VALUES (%s,%s,%s)'''
 		args=(name,link,d)
 		cur.execute(sql,args)
-		return get_movies_id_in_database(name,link,d,con)
+		return get_movies_id_in_database(name,link,d,con,count)
 
 def insert_into_links_table(movie_id, link, con):
 	
@@ -59,6 +61,9 @@ def i_have_got_movies_url((url,con)):
 		l=(l[0].find_all('tr'))
 		l=l[1].find_all('td')[1].text
 		released_date=datetime.strptime(l,'%B %d, %Y')
+		if released_date.year < 1900:
+			released_date = datetime.today()
+			
 	except:
 		pass
 	
@@ -74,11 +79,15 @@ def i_have_got_movies_url((url,con)):
 	try:
 		a=soup.findAll(attrs={"property":"og:title"})
 		name = a[0]['content']
-		#~ print 'name: %s Url: %s' % (name, url)
+		if len(name) == 0:			
+			print 'name length is zero : %s Url: %s' % (name, url)
+			return
 	except:
 		pass
 	
 	movie_id=get_movies_id_in_database(name,imdb_id,released_date,con)
+	if not movie_id:
+		return
 	l=soup.find_all('a')
 	reg=re.compile(r'.*?url=(.+?)&domain.*')
 	reg2=re.compile(r'.*external.php.*')
@@ -315,7 +324,7 @@ if __name__=='__main__':
 	#~ f=open('movie_marshal','wb');
 	#~ marshal.dump(all_movies, f)
 	#~ f.close()
-	sys.exit()
+	#~ sys.exit()
 
 	p=Pool(processes=WORKER)
 	chunk_size = (len(all_movies)+WORKER-1)/WORKER
